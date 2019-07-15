@@ -20,7 +20,7 @@ for index, row in train_images_paths.iterrows():
     img = cv2.imread(row[0], 0)
 
     #resizing image
-        size = (250, 250)    
+    size = (250, 250)    
     img = cv2.resize(img, size, interpolation = cv2.INTER_AREA)
 
     #high pass filter
