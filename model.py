@@ -56,11 +56,6 @@ def loadData():
 
             X[index] = sobel
 
-            #flat = np.matrix(sobel.flatten())
-            #X[index, :] = flat    
-
-            #print(X.shape)
-            print(index)
             
             '''    
             if index ==10:
@@ -85,6 +80,3 @@ def loadData():
 
 if __name__ == "__main__":
     X, y = loadData()
-    print(X.shape, y.shape)
-    print(X)
-    print(y)
