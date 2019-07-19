@@ -2,16 +2,13 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import pandas as pd
-import  time
+import time
 import preprocess as pre
 import train as tr
+import os
 import os.path
 
-label_dict = {
-    0: 'positive',
-    1: 'negative'
-}
-img_size = 250
+img_size = 128
 def loadData():
     if (os.path.exists('trainingData.npy') and os.path.exists('trainingDataLabels.npy')):
         X = np.load('trainingData.npy')
@@ -26,9 +23,8 @@ def loadData():
         num_training = train_images_paths.__len__()
         num_classes = 2
 
+        X = np.zeros((num_training,img_size,img_size,1), dtype = np.float32)
         y = np.zeros((num_training, num_classes), dtype = np.float32)
-
-        X = np.zeros((num_training,img_size,img_size), dtype = np.float16)
 
         #loading training data
         for index, row in train_images_paths.iterrows():
@@ -54,9 +50,11 @@ def loadData():
             #normalization
             sobel = sobel / sobel.max()
 
+            sobel=np.reshape(sobel, (img_size,img_size,1))
+
             X[index] = sobel
 
-            
+            print(index)
             '''    
             if index ==10:
 
@@ -80,3 +78,7 @@ def loadData():
 
 if __name__ == "__main__":
     X, y = loadData()
+    tr.train(X,y)
+    #print(X.shape)
+    #print(X)
+    #try  without normalization
