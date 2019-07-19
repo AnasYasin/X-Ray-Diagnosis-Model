@@ -94,14 +94,5 @@ def train (train_X, train_y):
                         "{:.6f}".format(loss) + ", Training Accuracy= " + \
                         "{:.5f}".format(acc))
             print("Optimization Finished!")
-            '''
-            # Calculate accuracy for all 10000 mnist test images
-            test_acc,valid_loss = sess.run([accuracy,cost], feed_dict={x: test_X,y : test_y})
-            train_loss.append(loss)
-            test_loss.append(valid_loss)
-            train_accuracy.append(acc)
-            test_accuracy.append(test_acc)
-            print("Testing Accuracy:","{:.5f}".format(test_acc))
-            '''
         summary_writer.close()
         return
