@@ -12,13 +12,14 @@ import matplotlib.pyplot as plt
 img_size = 256
 epoch = 550
 batch_size = 64
-learning_rate = 0.001
+learning_rate = 0.00001
 num_classes = 2
 
 label_dict = {
     0: 'positive',
     1: 'negative'
 }
+
 
 def loadData():
 
@@ -29,6 +30,8 @@ def loadData():
         y = np.load('trainingDataLabels.npy')
     else:
         train_images_paths = pd.read_csv("train_image_paths.csv", header=None)
+        #shuffle the df
+        train_images_paths = train_images_paths.sample(frac=1).reset_index(drop=True)
 
         num_training = train_images_paths.__len__()
 
@@ -56,7 +59,8 @@ def loadData():
             sobel , smooth_sobel = pre.sobel(sharp)
             
             #normalization
-            sobel = sobel / sobel.max()
+            #sobel = sobel - np.max(sobel)
+            sobel = (sobel - np.mean(sobel)) / np.sqrt(np.var(sobel))
 
             sobel=np.reshape(sobel, (img_size,img_size,1))
 
@@ -75,6 +79,10 @@ def loadData():
         test_y = np.load('testingDataLabels.npy')
     else:
         test_images_paths = pd.read_csv("valid_image_paths.csv", header=None)
+        #shuffle df
+
+        test_images_paths = test_images_paths.sample(frac=1).reset_index(drop=True)
+
         num_testing = test_images_paths.__len__()
 
         test_X = np.zeros((num_testing,img_size,img_size,1), dtype = np.float32)
@@ -101,7 +109,9 @@ def loadData():
             sobel , smooth_sobel = pre.sobel(sharp)
             
             #normalization
-            sobel = sobel / sobel.max()
+            #sobel = sobel / sobel.max()
+            sobel = (sobel - np.mean(sobel)) / np.sqrt(np.var(sobel))
+
 
             sobel=np.reshape(sobel, (img_size,img_size,1))
 
@@ -111,7 +121,6 @@ def loadData():
             
         np.save('testingData.npy', test_X)
         np.save('testingDataLabels.npy', test_y)
-
     return X, y, test_X, test_y
 
 def plot_images(X, y):
@@ -136,6 +145,8 @@ def plot_images(X, y):
 
 if __name__ == "__main__":
     X, y, test_X, test_y = loadData()
-    #plot_images(X,y)
+
+    
     model.train(X, y, test_X, test_y, epoch, learning_rate, batch_size)
+    
     
