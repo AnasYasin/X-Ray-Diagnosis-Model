@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os
 import matplotlib.pyplot as plt
+
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 num_classes = 2
@@ -52,7 +53,6 @@ def fcl(X, W, b, name='fcl'):
         return act
 
 def conv_net(X, weights, biases):  
-
     conv1 = conv2d(X, weights['wc1'], biases['bc1'], name = 'conv1')
     conv1 = maxpool2d(conv1, k=2, name = 'maxpooling')
 
@@ -73,7 +73,6 @@ def conv_net(X, weights, biases):
     return logits
 
 def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001, batch_size = 64):
-    
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     tf.summary.image('input', X, 3)
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
@@ -97,16 +96,10 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001,
 
     with tf.Session() as sess:
         sess.run(init) 
-        
-        train_loss = []
-        test_loss = []
-        train_accuracy = []
-        test_accuracy = []
-        
-        summary_writer = tf.summary.FileWriter('./Output/7', sess.graph)
+
+        summary_writer = tf.summary.FileWriter('./Output/10', sess.graph)
         summary_writer.add_graph(sess.graph)
         
-        count = 0
         for i in range(epoch):
             for batch in range(len(train_X)//batch_size):   
                 batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
@@ -120,18 +113,29 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001,
                 #writing summries on every iteration.
                 s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
                 summary_writer.add_summary(s, i)
+                
 
                 if (batch % 25 == 0):
-                    count += 25*64
-                    print("Examples processed: " + str(count) + ", Loss = {:.6f}".format(loss) + ", Training Accuracy = {:.5f}".format(acc))
+                    print("epoch: " + str(i) + ", batch: " + str(batch))
+                    print ("Training Accuracy = {:.5f}".format(acc), ", Training Loss = {:.6f}".format(loss))
 
                     #test accuracy            
-                    test_acc,valid_loss = sess.run([accuracy,cost], feed_dict={X: test_X[0:60], y : test_y[0:60]})
-                    train_loss.append(loss)
-                    test_loss.append(valid_loss)
-                    train_accuracy.append(acc)
-                    test_accuracy.append(test_acc)
-                    print("Testing Accuracy:","{:.5f}".format(test_acc))
+                    total_test_acc = 0
+                    total_test_loss = 0
+                    total_batch = len(test_X) // batch_size
+                    for test_batch in range(total_batch):                    
+                        test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
+                        test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
+                        
+                        test_acc,test_loss = sess.run([accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
+                        
+                        total_test_acc += test_acc
+                        total_test_loss += test_loss  
+
+                    total_test_acc /= total_batch 
+                    total_test_loss /= total_batch 
+                    print("Testing Accuracy:","{:.5f}".format(total_test_acc), ", Testing loss:","{:.5f}".format(total_test_loss))
+                    print("_____________________________________________________________")
                     
         summary_writer.close()
         return
