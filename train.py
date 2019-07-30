@@ -72,7 +72,7 @@ def conv_net(X, weights, biases):
 
     return logits
 
-def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001, batch_size = 64):
+def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001, batch_size = 64):
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     tf.summary.image('input', X, 3)
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
@@ -93,49 +93,53 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001,
 
     init = tf.global_variables_initializer()
 
+    saver = tf.train.Saver()
 
     with tf.Session() as sess:
         sess.run(init) 
 
         summary_writer = tf.summary.FileWriter('./Output/10', sess.graph)
         summary_writer.add_graph(sess.graph)
-        
-        for i in range(epoch):
-            for batch in range(len(train_X)//batch_size):   
-                batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
-                batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
-                # Run optimization op (backprop).
-                    # Calculate batch loss and accuracy
+        try:
+            for i in range(epoch):
+                for batch in range(len(train_X)//batch_size):   
+                    batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
+                    batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
+                    # Run optimization op (backprop).
+                        # Calculate batch loss and accuracy
 
-                opt = sess.run(optimizer, feed_dict={X: batch_x, y: batch_y})
-                loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, y: batch_y})
-                
-                #writing summries on every iteration.
-                s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
-                summary_writer.add_summary(s, i)
-                
-
-                if (batch % 25 == 0):
-                    print("epoch: " + str(i) + ", batch: " + str(batch))
-                    print ("Training Accuracy = {:.5f}".format(acc), ", Training Loss = {:.6f}".format(loss))
-
-                    #test accuracy            
-                    total_test_acc = 0
-                    total_test_loss = 0
-                    total_batch = len(test_X) // batch_size
-                    for test_batch in range(total_batch):                    
-                        test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
-                        test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
-                        
-                        test_acc,test_loss = sess.run([accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
-                        
-                        total_test_acc += test_acc
-                        total_test_loss += test_loss  
-
-                    total_test_acc /= total_batch 
-                    total_test_loss /= total_batch 
-                    print("Testing Accuracy:","{:.5f}".format(total_test_acc), ", Testing loss:","{:.5f}".format(total_test_loss))
-                    print("_____________________________________________________________")
+                    opt = sess.run(optimizer, feed_dict={X: batch_x, y: batch_y})
+                    loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, y: batch_y})
                     
-        summary_writer.close()
-        return
+                    #writing summries on every iteration.
+                    s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
+                    summary_writer.add_summary(s, i)
+                    
+
+                    if (batch % 25 == 0):
+                        print("epoch: " + str(i) + ", batch: " + str(batch))
+                        print ("Training Accuracy = {:.5f}".format(acc), ", Training Loss = {:.6f}".format(loss))
+
+                        #test accuracy            
+                        total_test_acc = 0
+                        total_test_loss = 0
+                        total_batch = len(test_X) // batch_size
+                        for test_batch in range(total_batch):                    
+                            test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
+                            test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
+                            
+                            test_acc,test_loss = sess.run([accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
+                            
+                            total_test_acc += test_acc
+                            total_test_loss += test_loss  
+
+                        total_test_acc /= total_batch 
+                        total_test_loss /= total_batch 
+                        print("Testing Accuracy:","{:.5f}".format(total_test_acc), ", Testing loss:","{:.5f}".format(total_test_loss))
+                        print("_____________________________________________________________")
+        except KeyboardInterrupt:                
+            print("Exporting Weights")
+            save_path = saver.save(sess, "/tmp/weights.ckpt")
+            summary_writer.close()  
+
+    return
