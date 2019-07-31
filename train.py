@@ -15,15 +15,17 @@ weights = {
     'wc1': tf.get_variable('W0', shape=(3,3,1,32), initializer=tf.contrib.layers.xavier_initializer()), 
     'wc2': tf.get_variable('W1', shape=(3,3,32,64), initializer=tf.contrib.layers.xavier_initializer()), 
     'wc3': tf.get_variable('W2', shape=(3,3,64,128), initializer=tf.contrib.layers.xavier_initializer()), 
-    'wd1': tf.get_variable('W3', shape=(32*32*128,128), initializer=tf.contrib.layers.xavier_initializer()), 
-    'out': tf.get_variable('W4', shape=(128,num_classes), initializer=tf.contrib.layers.xavier_initializer()), 
+    'wc4': tf.get_variable('W3', shape=(3,3,128,256), initializer=tf.contrib.layers.xavier_initializer()),
+    'wd1': tf.get_variable('W4', shape=(16*16*256,256), initializer=tf.contrib.layers.xavier_initializer()), 
+    'out': tf.get_variable('W5', shape=(256,num_classes), initializer=tf.contrib.layers.xavier_initializer()), 
 }
 biases = {
     'bc1': tf.get_variable('B0', shape=(32), initializer=tf.contrib.layers.xavier_initializer()),
     'bc2': tf.get_variable('B1', shape=(64), initializer=tf.contrib.layers.xavier_initializer()),
     'bc3': tf.get_variable('B2', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'bd1': tf.get_variable('B3', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'out': tf.get_variable('B4', shape=(num_classes), initializer=tf.contrib.layers.xavier_initializer()),
+    'bc4': tf.get_variable('B3', shape=(256), initializer=tf.contrib.layers.xavier_initializer()),
+    'bd1': tf.get_variable('B4', shape=(256), initializer=tf.contrib.layers.xavier_initializer()),
+    'out': tf.get_variable('B5', shape=(num_classes), initializer=tf.contrib.layers.xavier_initializer()),
 }
 
 def conv2d(X, W, b, strides = 1, name='conv'):
@@ -62,7 +64,10 @@ def conv_net(X, weights, biases):
     conv3 = conv2d(conv2, weights['wc3'], biases['bc3'], name = 'conv3')
     conv3 = maxpool2d(conv3, k=2, name = 'maxpooling')
 
-    flatten = tf.reshape(conv3, [-1, weights['wd1'].get_shape().as_list()[0]]) 
+    conv4 = conv2d(conv3, weights['wc4'], biases['bc4'], name = 'conv4')
+    conv4 = maxpool2d(conv4, k=2, name = 'maxpooling')
+
+    flatten = tf.reshape(conv4, [-1, weights['wd1'].get_shape().as_list()[0]]) 
 
     fc1 = fcl(flatten, weights['wd1'], biases['bd1'], name = 'fc1')
     relu = tf.nn.relu(fc1)
@@ -90,23 +95,19 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
         tf.summary.scalar("accuracy", accuracy)
 
     summ = tf.summary.merge_all()
-
     init = tf.global_variables_initializer()
-
     saver = tf.train.Saver()
 
     with tf.Session() as sess:
         sess.run(init) 
 
-        summary_writer = tf.summary.FileWriter('./Output/10', sess.graph)
+        summary_writer = tf.summary.FileWriter('./Output/114layered', sess.graph)
         summary_writer.add_graph(sess.graph)
         try:
             for i in range(epoch):
                 for batch in range(len(train_X)//batch_size):   
                     batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
                     batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
-                    # Run optimization op (backprop).
-                        # Calculate batch loss and accuracy
 
                     opt = sess.run(optimizer, feed_dict={X: batch_x, y: batch_y})
                     loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, y: batch_y})
@@ -115,7 +116,6 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
                     s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
                     summary_writer.add_summary(s, i)
                     
-
                     if (batch % 25 == 0):
                         print("epoch: " + str(i) + ", batch: " + str(batch))
                         print ("Training Accuracy = {:.5f}".format(acc), ", Training Loss = {:.6f}".format(loss))
@@ -128,7 +128,7 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
                             test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
                             test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
                             
-                            test_acc,test_loss = sess.run([accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
+                            test_acc,test_loss = sess.run([ accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
                             
                             total_test_acc += test_acc
                             total_test_loss += test_loss  
