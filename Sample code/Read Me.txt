@@ -1,0 +1,5 @@
+If you want to see the model check cat and dogs.py
+
+but if you want to run it use this link and download the weights.hdf5 and use the loadingtest.py
+and a image of a cat or a dog
+https://drive.google.com/open?id=1TnwZBrjuX2WuhF1HhbYILCpoEqcOwsnT
