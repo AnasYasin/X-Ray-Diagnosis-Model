@@ -7,7 +7,8 @@ import cv2
 import time
 import matplotlib.pyplot as plt
 from skimage import io, color
-
+import pandas as pd
+import preprocess as pre
 
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -77,9 +78,11 @@ def conv_net(X, weights, biases):
 
 
 def load_equal_split_test_data():
-    print("loading data")
-    X = np.load('testingData.npy')
-    y = np.load('testingDataLabels.npy')
+    print("loading data")   
+    X = np.load('testSet.npy')
+    y = np.load('testSetLabels.npy')
+
+    print(X.shape)
     indecies = np.empty(100, dtype=int)
     count = 0
     for i in range(2):
@@ -99,8 +102,8 @@ def load_equal_split_test_data():
     return X, y
 
 def load_test_data():
-    X = np.load('testingData.npy')
-    y = np.load('testingDataLabels.npy')
+    X = np.load('devSet.npy')
+    y = np.load('devSetLabels.npy')
     return X, y
 
 def plot_images(X):
@@ -114,8 +117,6 @@ def plot_images(X):
     #time.sleep(1000)
     '''
 
-
-
     fig=plt.figure(figsize=(10, 10))
     columns = 4
     rows = 4
@@ -128,8 +129,6 @@ def plot_images(X):
         plt.imshow(img, cmap='gray')
     plt.show()
 
-
-
     return
 
 
@@ -138,11 +137,14 @@ def predict ():
     test_X, test_y = load_equal_split_test_data()
     #test_X, test_y = load_test_data()
     plot_images(test_X)    
+    
+    
     #shuffl
     indices = np.random.choice(test_X.__len__(), 100)
     test_X = test_X[indices]
     test_y = test_y[indices]
     
+
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
 
@@ -157,10 +159,12 @@ def predict ():
     with tf.Session() as sess:
         print("Loading the saved model")
         saver.restore(sess, "/home/anas/FYP/weights/weights.ckpt")
-           
+                  
         loss, acc = sess.run([cost, accuracy], feed_dict={X: test_X, y: test_y})    
         prediction = sess.run(tf.argmax(logits, 1), feed_dict={X: test_X, y: test_y})
         actual = sess.run(tf.argmax(y, 1), feed_dict={X: test_X, y: test_y})
+        
+        #50 - 50
         
         print("F1-score", sklearn.metrics.f1_score(actual, prediction, labels=None, pos_label=1,  sample_weight=None))
         
@@ -190,7 +194,6 @@ def predict ():
         total_test_loss /= total_batch 
         print("Testing Accuracy:","{:.5f}".format(total_test_acc), ", Testing loss:","{:.5f}".format(total_test_loss))
         '''
-
 
         return
         

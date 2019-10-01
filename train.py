@@ -77,7 +77,7 @@ def conv_net(X, weights, biases):
 
     return logits
 
-def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001, batch_size = 64):
+def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.00001, batch_size = 64):
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     tf.summary.image('input', X, 3)
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
@@ -101,7 +101,7 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
     with tf.Session() as sess:
         sess.run(init) 
 
-        summary_writer = tf.summary.FileWriter('./Output/114layered', sess.graph)
+        summary_writer = tf.summary.FileWriter('./Output/174layered', sess.graph)
         summary_writer.add_graph(sess.graph)
         try:
             for i in range(epoch):
@@ -128,7 +128,7 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
                             test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
                             test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
                             
-                            test_acc,test_loss = sess.run([ accuracy,cost], feed_dict={X: test_batch_X, y : test_batch_y})
+                            test_acc,test_loss = sess.run([accuracy, cost], feed_dict={X: test_batch_X, y : test_batch_y})
                             
                             total_test_acc += test_acc
                             total_test_loss += test_loss  
@@ -139,7 +139,7 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.0001
                         print("_____________________________________________________________")
         except KeyboardInterrupt:                
             print("Exporting Weights")
-            save_path = saver.save(sess, "/tmp/weights.ckpt")
+            save_path = saver.save(sess, "/home/anas/FYP/weights/weights.ckpt")
             summary_writer.close()  
 
     return
