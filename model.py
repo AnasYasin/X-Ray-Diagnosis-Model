@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 img_size = 256
 epoch = 550
 batch_size = 64
-learning_rate = 0.001
+learning_rate = 0.00001
 num_classes = 2
 
 label_dict = {
@@ -24,19 +24,20 @@ def loadData():
 
     #loading training data________________________________________________________________
     print("Loading training images:")
-    if (os.path.exists('trainingData.npy') and os.path.exists('trainingDataLabels.npy')):
-        X = np.load('trainingData.npy')
-        y = np.load('trainingDataLabels.npy')
+    if (os.path.exists('trainingSet.npy') and os.path.exists('trainingSetLabels.npy')):
+        X = np.load('trainingSet.npy')
+        y = np.load('trainingSetLabels.npy')
     else:
         train_images_paths = pd.read_csv("train_image_paths.csv", header=None)
+        #shuffle the df
+        train_images_paths = train_images_paths.sample(frac=1).reset_index(drop=True)
 
         num_training = train_images_paths.__len__()
-
+        print(num_training)
         X = np.zeros((num_training,img_size,img_size,1), dtype = np.float32)
         y = np.zeros((num_training, num_classes), dtype = np.float32)
         
         for index, row in train_images_paths.iterrows():
-            
             if(row[0].find("positive") != -1):
                 y[index,0] = 1
 
@@ -47,6 +48,7 @@ def loadData():
 
             #resizing image
             size = (img_size, img_size)    
+
             img = cv2.resize(img, size, interpolation = cv2.INTER_AREA)
 
             #high pass filter
@@ -56,37 +58,62 @@ def loadData():
             sobel , smooth_sobel = pre.sobel(sharp)
             
             #normalization
-            sobel = sobel / sobel.max()
+            #sobel = sobel - np.max(sobel)
+            
+            #standardization
+            sobel = (sobel - np.mean(sobel)) / np.sqrt(np.var(sobel))
 
             sobel=np.reshape(sobel, (img_size,img_size,1))
-
             X[index] = sobel
 
             print("Training img : ", index)
-            
-        np.save('trainingData.npy', X)
-        np.save('trainingDataLabels.npy', y)
+      
 
-    
+    if (os.path.exists('testSet.npy') and os.path.exists('testSetLabels.npy')):
+        test_X = np.load('testSet.npy')
+        test_y = np.load('testSetLabels.npy')
+    else:
+        test_X = X[35000: 36809]
+        test_y = y[35000: 36809]
+        X_ = X[0:35000]
+        y_ = y[0:35000]
+
+        np.save('trainingSet.npy', X_)
+        np.save('trainingSetLabels.npy', y_)
+        np.save('testSet.npy', test_X)
+        np.save('testSetLabels.npy', test_y)
+        print(test_X.shape)
+        print(X_.shape)
+        print(X_)
+        print(test_X)
+
+
+
     #loading testing data________________________________________________________________
     print("Loading testing images:")
-    if (os.path.exists('testingData.npy') and os.path.exists('testingDataLabels.npy')):
-        test_X = np.load('testingData.npy')
-        test_y = np.load('testingDataLabels.npy')
+    if (os.path.exists('devSet.npy') and os.path.exists('devSetLabels.npy')):
+        dev_X = np.load('devSet.npy')
+        dev_y = np.load('devSetLabels.npy')
+        X_ = X
+        y_ = y
     else:
         test_images_paths = pd.read_csv("valid_image_paths.csv", header=None)
-        num_testing = test_images_paths.__len__()
+        #shuffle df
 
-        test_X = np.zeros((num_testing,img_size,img_size,1), dtype = np.float32)
-        test_y = np.zeros((num_testing, num_classes), dtype = np.float32)
+        test_images_paths = test_images_paths.sample(frac=1).reset_index(drop=True)
+
+        num_dev_set = test_images_paths.__len__()
+
+        dev_X = np.zeros((num_dev_set,img_size,img_size,1), dtype = np.float32)
+        dev_y = np.zeros((num_dev_set, num_classes), dtype = np.float32)
 
         for index, row in test_images_paths.iterrows():
             
             if(row[0].find("positive") != -1):
-                test_y[index,0] = 1
+                dev_y[index,0] = 1
 
             elif(row[0].find("negative") != -1):
-                test_y[index,1] = 1 
+                dev_y[index,1] = 1 
             
             img = cv2.imread(row[0], 0)
 
@@ -101,22 +128,24 @@ def loadData():
             sobel , smooth_sobel = pre.sobel(sharp)
             
             #normalization
-            sobel = sobel / sobel.max()
-
+            #sobel = sobel / sobel.max()
+            
+            #standardization
+            sobel = (sobel - np.mean(sobel)) / np.sqrt(np.var(sobel))
             sobel=np.reshape(sobel, (img_size,img_size,1))
 
-            test_X[index] = sobel
+            dev_X[index] = sobel
 
-            print("Testing img : ", index)
+            print("Dev set img : ", index)
             
-        np.save('testingData.npy', test_X)
-        np.save('testingDataLabels.npy', test_y)
-
-    return X, y, test_X, test_y
+        np.save('devSet.npy', dev_X) 
+        np.save('devSetLabels.npy', dev_y)
+    return X_, y_, dev_X, dev_y, test_X, test_y
 
 def plot_images(X, y):
     cv2.imshow('image',X[0])
     cv2.waitKey(500)
+    
     '''    
     if index ==10:
 
@@ -130,12 +159,13 @@ def plot_images(X, y):
         cv2.imshow('image',numpy_horizontal_concat)
         cv2.waitKey(0)
         time.sleep(1000)
-    '''
+    ''' 
 
 
 
 if __name__ == "__main__":
-    X, y, test_X, test_y = loadData()
-    #plot_images(X,y)
-    model.train(X, y, test_X, test_y, epoch, learning_rate, batch_size)
+    X, y, dev_X, dev_y, test_X, test_y = loadData()
+
+    model.train(X, y, dev_X, dev_y, epoch, learning_rate, batch_size)
+    
     
