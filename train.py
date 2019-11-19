@@ -1,6 +1,8 @@
 import tensorflow as tf
 import os
 import matplotlib.pyplot as plt
+import numpy as np
+
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 num_classes = 2
@@ -14,15 +16,17 @@ weights = {
     'wc1': tf.get_variable('W0', shape=(3,3,1,32), initializer=tf.contrib.layers.xavier_initializer()), 
     'wc2': tf.get_variable('W1', shape=(3,3,32,64), initializer=tf.contrib.layers.xavier_initializer()), 
     'wc3': tf.get_variable('W2', shape=(3,3,64,128), initializer=tf.contrib.layers.xavier_initializer()), 
-    'wd1': tf.get_variable('W3', shape=(32*32*128,128), initializer=tf.contrib.layers.xavier_initializer()), 
-    'out': tf.get_variable('W4', shape=(128,num_classes), initializer=tf.contrib.layers.xavier_initializer()), 
+    'wc4': tf.get_variable('W3', shape=(3,3,128,256), initializer=tf.contrib.layers.xavier_initializer()),
+    'wd1': tf.get_variable('W4', shape=(16*16*256,256), initializer=tf.contrib.layers.xavier_initializer()), 
+    'out': tf.get_variable('W5', shape=(256,num_classes), initializer=tf.contrib.layers.xavier_initializer()), 
 }
 biases = {
     'bc1': tf.get_variable('B0', shape=(32), initializer=tf.contrib.layers.xavier_initializer()),
     'bc2': tf.get_variable('B1', shape=(64), initializer=tf.contrib.layers.xavier_initializer()),
     'bc3': tf.get_variable('B2', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'bd1': tf.get_variable('B3', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'out': tf.get_variable('B4', shape=(num_classes), initializer=tf.contrib.layers.xavier_initializer()),
+    'bc4': tf.get_variable('B3', shape=(256), initializer=tf.contrib.layers.xavier_initializer()),
+    'bd1': tf.get_variable('B4', shape=(256), initializer=tf.contrib.layers.xavier_initializer()),
+    'out': tf.get_variable('B5', shape=(num_classes), initializer=tf.contrib.layers.xavier_initializer()),
 }
 
 def conv2d(X, W, b, strides = 1, name='conv'):
@@ -51,8 +55,14 @@ def fcl(X, W, b, name='fcl'):
         tf.summary.histogram("activations", act)
         return act
 
-def conv_net(X, weights, biases):  
+gap = np.empty(256)
 
+def global_avg_pooling(X, name='GAP'):
+    gap = tf.keras.layers.GlobalAveragePooling2D(data_format='channels_last')(X) #, data_format='channels_last')
+    print('GAP =', gap.shape)
+    return gap 
+
+def conv_net(X, weights, biases):  
     conv1 = conv2d(X, weights['wc1'], biases['bc1'], name = 'conv1')
     conv1 = maxpool2d(conv1, k=2, name = 'maxpooling')
 
@@ -62,7 +72,13 @@ def conv_net(X, weights, biases):
     conv3 = conv2d(conv2, weights['wc3'], biases['bc3'], name = 'conv3')
     conv3 = maxpool2d(conv3, k=2, name = 'maxpooling')
 
-    flatten = tf.reshape(conv3, [-1, weights['wd1'].get_shape().as_list()[0]]) 
+    conv4 = conv2d(conv3, weights['wc4'], biases['bc4'], name = 'conv4')
+    conv4 = maxpool2d(conv4, k=2, name = 'maxpooling')
+    
+    gapLayer = global_avg_pooling(conv4)
+    print(gapLayer.shape)
+
+    flatten = tf.reshape(conv4, [-1, weights['wd1'].get_shape().as_list()[0]]) 
 
     fc1 = fcl(flatten, weights['wd1'], biases['bd1'], name = 'fc1')
     relu = tf.nn.relu(fc1)
@@ -72,8 +88,7 @@ def conv_net(X, weights, biases):
 
     return logits
 
-def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001, batch_size = 64):
-    
+def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.00001, batch_size = 64):
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     tf.summary.image('input', X, 3)
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
@@ -89,49 +104,54 @@ def train (train_X, train_y, test_X, test_y, epoch = 550, learning_rate = 0.001,
         correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         tf.summary.scalar("accuracy", accuracy)
-
+        
     summ = tf.summary.merge_all()
-
     init = tf.global_variables_initializer()
-
+    saver = tf.train.Saver()
 
     with tf.Session() as sess:
         sess.run(init) 
-        
-        train_loss = []
-        test_loss = []
-        train_accuracy = []
-        test_accuracy = []
-        
-        summary_writer = tf.summary.FileWriter('./Output/7', sess.graph)
+
+        summary_writer = tf.summary.FileWriter('./Output/174layered', sess.graph)
         summary_writer.add_graph(sess.graph)
-        
-        count = 0
-        for i in range(epoch):
-            for batch in range(len(train_X)//batch_size):   
-                batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
-                batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
-                # Run optimization op (backprop).
-                    # Calculate batch loss and accuracy
+        try:
+            for i in range(epoch):
+                for batch in range(len(train_X)//batch_size):   
+                    batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
+                    batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
 
-                opt = sess.run(optimizer, feed_dict={X: batch_x, y: batch_y})
-                loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, y: batch_y})
-                
-                #writing summries on every iteration.
-                s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
-                summary_writer.add_summary(s, i)
-
-                if (batch % 25 == 0):
-                    count += 25*64
-                    print("Examples processed: " + str(count) + ", Loss = {:.6f}".format(loss) + ", Training Accuracy = {:.5f}".format(acc))
-
-                    #test accuracy            
-                    test_acc,valid_loss = sess.run([accuracy,cost], feed_dict={X: test_X[0:60], y : test_y[0:60]})
-                    train_loss.append(loss)
-                    test_loss.append(valid_loss)
-                    train_accuracy.append(acc)
-                    test_accuracy.append(test_acc)
-                    print("Testing Accuracy:","{:.5f}".format(test_acc))
+                    opt = sess.run(optimizer, feed_dict={X: batch_x, y: batch_y})
+                    loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, y: batch_y})
                     
-        summary_writer.close()
-        return
+                    #writing summries on every iteration.
+                    s = sess.run(summ, feed_dict={X: batch_x, y: batch_y})
+                    summary_writer.add_summary(s, i)
+                    
+                    if (batch % 25 == 0):
+                        print("epoch: " + str(i) + ", batch: " + str(batch))
+                        print ("Training Accuracy = {:.5f}".format(acc), ", Training Loss = {:.6f}".format(loss))
+
+                        #test accuracy            
+                        total_test_acc = 0
+                        total_test_loss = 0
+                        total_batch = len(test_X) // batch_size
+                        for test_batch in range(total_batch):                    
+                            test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
+                            test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
+                            
+                            test_acc,test_loss = sess.run([accuracy, cost], feed_dict={X: test_batch_X, y : test_batch_y})
+                            
+                            total_test_acc += test_acc
+                            total_test_loss += test_loss  
+
+                        total_test_acc /= total_batch 
+                        total_test_loss /= total_batch 
+                        print("Testing Accuracy:","{:.5f}".format(total_test_acc), ", Testing loss:","{:.5f}".format(total_test_loss))
+                        print("_____________________________________________________________")
+        except KeyboardInterrupt:                
+            print("Exporting Weights")
+            saver.save(sess, "/home/anas/FYP/weights/weights.ckpt")
+            summary_writer.close()  
+            
+
+    return
