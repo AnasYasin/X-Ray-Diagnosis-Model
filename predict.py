@@ -10,6 +10,7 @@ from skimage import io, color
 import pandas as pd
 import preprocess as pre
 import sys
+from matplotlib import pyplot as plt
 
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -29,6 +30,7 @@ weights = {
     'wd1': tf.get_variable('W4', shape=(16*16*256,256), initializer=tf.contrib.layers.xavier_initializer()), 
     'out': tf.get_variable('W5', shape=(256,num_classes), initializer=tf.contrib.layers.xavier_initializer()), 
 }
+
 biases = {
     'bc1': tf.get_variable('B0', shape=(32), initializer=tf.contrib.layers.xavier_initializer()),
     'bc2': tf.get_variable('B1', shape=(64), initializer=tf.contrib.layers.xavier_initializer()),
@@ -89,7 +91,7 @@ def conv_net(X, weights, biases):
     
     logits = fcl(relu, weights['out'], biases['out'], name = 'fc2')
 
-    return logits
+    return logits, conv4
 
 def load_neg_data():
     print("loading data")   
@@ -184,10 +186,9 @@ def plot_images(X):
     fig=plt.figure(figsize=(10, 10))
     columns = 3
     rows = 3
-    print(X[0].shape)
     
 
-    for i in range(1, columns*rows +1):
+    for i in range(1, columns*rows + 1):
         img = np.squeeze(X[i-1], axis=2)
         fig.add_subplot(rows, columns, i)
         plt.imshow(img, cmap='gray')
@@ -213,7 +214,7 @@ def predict ():
     X = tf.placeholder('float', [None, 256, 256,1], name = 'X')
     y = tf.placeholder('float', [None, num_classes], name = 'labels')
 
-    logits = conv_net(X, weights, biases)
+    logits, conv4 = conv_net(X, weights, biases)
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))     
     correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
 
@@ -229,14 +230,45 @@ def predict ():
         total_test_acc = 0
         total_test_loss = 0
         total_batch = len(test_X) // batch_size
+        counter = 0
         for test_batch in range(total_batch):                    
-            test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_X))]
-            test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size,len(test_y))]          
-            
-            test_acc,test_loss = sess.run([accuracy, cost], feed_dict={X: test_batch_X, y : test_batch_y})
+            test_batch_X = test_X[test_batch*batch_size:min((test_batch+1)*batch_size, len(test_X))]
+            test_batch_y = test_y[test_batch*batch_size:min((test_batch+1)*batch_size, len(test_y))]          
+            test_acc, test_loss = sess.run([accuracy, cost], feed_dict={X: test_batch_X, y : test_batch_y})
             prediction = sess.run(tf.argmax(logits, 1), feed_dict={X: test_batch_X, y: test_batch_y})
             actual = sess.run(tf.argmax(y, 1), feed_dict={X: test_batch_X, y: test_batch_y})
-        
+       
+            map = sess.run(conv4, feed_dict={X: test_batch_X, y : test_batch_y})
+            print(total_batch)
+            
+            temp = map[0,:,:,0]
+            dim=(256,256)
+            temp = cv2.resize(temp, dim, interpolation = cv2.INTER_NEAREST)
+            temp = cv2.GaussianBlur(temp, (11,11), 0)
+ 
+
+
+            for i in range(total_batch):
+                img = map[0,:,:,i+1]
+                img = cv2.resize(img, dim, interpolation = cv2.INTER_NEAREST)
+                img = cv2.GaussianBlur(img, (11,11), 0)
+ 
+                temp += img
+                #temp += map[0,:,:,i+1]
+
+
+
+            fig=plt.figure(figsize=(10, 10))
+            columns = 2
+            rows = 2
+
+            fig.add_subplot(rows, columns, 1)
+            plt.imshow(test_batch_X[0,:,:,0], cmap='gray')
+
+            fig.add_subplot(rows, columns, 2)
+            plt.imshow(temp, cmap=plt.cm.jet, alpha=1)
+            plt.colorbar()
+            plt.show()
 
             total_test_acc += test_acc
             total_test_loss += test_loss  
